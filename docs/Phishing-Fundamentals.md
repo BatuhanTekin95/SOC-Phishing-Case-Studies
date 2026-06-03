@@ -154,6 +154,10 @@ Common ATT&CK techniques observed during phishing investigations include:
 
 Understanding these techniques enables analysts to correlate phishing activity with broader adversary behavior and improve detection engineering efforts.
 
+>**Analyst Note on MITRE ATT&CK Framework:**
+>MITRE ATT&CK (Adversarial Tactics, Techniques, and Common Knowledge) is a globally-accessible, structured knowledge base of adversary tactics and techniques based on real-world observations. Because threat actors constantly evolve their methods, tools, and bypass capabilities, **the MITRE ATT&CK framework is not static; it is continuously updated to reflect the shifting cyber threat landscape.**
+>
+>As a SOC Analyst, mapping phishing indicators to this dynamic framework allows us to look beyond the initial compromise (Initial Access) and anticipate the attacker's subsequent moves (such as Execution or Credential Access), enabling proactive and intelligence-driven incident response.
 
 ## Email Authentication, Delivery Controls & SMTP Analysis
 
