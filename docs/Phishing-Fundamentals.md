@@ -405,18 +405,15 @@ Security teams frequently validate email defenses by manually interacting with S
 These responses help verify security controls, troubleshoot mail flow issues
 and understand how external mail infrastructure enforces authentication and reputation policies.
 
-## Conclusion
+# Conclusion
 
-Throughout this project, I explored the fundamental concepts, methodologies, and investigative techniques used during phishing email analysis from a SOC Analyst perspective. What began as a learning exercise evolved into a practical opportunity to understand how real-world phishing attacks are identified, analyzed, and assessed within security operations environments.
+This project provided a practical introduction to phishing email analysis from a SOC Analyst perspective. Through the examination of email protocols, authentication mechanisms, header artifacts, indicators of compromise (IOCs), and threat intelligence resources, I developed a structured approach to identifying and investigating phishing attempts.
 
-By studying email protocols, authentication mechanisms such as **SPF, DKIM,** and **DMARC**, header analysis, **IOC collection**, **OSINT investigations**, and threat intelligence correlation, I gained a deeper appreciation for the investigative mindset required to distinguish legitimate communications from malicious activity. I also learned how attackers leverage social engineering, domain impersonation, malicious infrastructure, and deceptive delivery methods to increase the likelihood of success.
+The research and analysis performed throughout this project highlighted how attackers combine technical techniques with social engineering to increase the effectiveness of their campaigns. Understanding email authentication controls such as SPF, DKIM, and DMARC, along with proper header analysis and IOC validation, is essential for distinguishing legitimate communications from malicious ones.
 
-This repository represents not only a collection of phishing investigation notes and case studies, but also a record of my personal learning journey in cybersecurity. Each section reflects concepts I researched, practiced, and documented to strengthen my understanding of phishing analysis and SOC workflows. Rather than simply studying the theory, I approached each investigation with the mindset of a SOC Analyst, following a structured methodology, validating evidence, and drawing conclusions based on observable indicators.
+By documenting investigation methodologies, analysis tools, and real-world phishing concepts, this repository serves as both a learning resource and a demonstration of practical security analysis skills. It reflects my growing understanding of email security, threat intelligence, digital forensics, and incident response processes commonly used within Security Operations Centers (SOCs).
 
-One of the most valuable lessons from this project is that effective phishing analysis extends beyond identifying a suspicious email. It requires understanding the complete attack chain, evaluating technical indicators, correlating intelligence sources, and assessing the potential impact on users and organizations. Developing these skills has helped me build a stronger foundation in email security, digital forensics, threat intelligence, and incident response.
+As phishing remains one of the most prevalent initial access techniques used by threat actors, developing strong analytical and investigative skills is critical for effective detection and response. This project represents an important step in my cybersecurity journey and provides a foundation for further exploration of threat hunting, malware analysis, and incident response.
 
-As I continue my cybersecurity journey, this project serves as a milestone that reflects both my progress and my commitment to continuous learning. I hope these notes and investigations are useful to other aspiring analysts who are beginning to explore phishing analysis and Security Operations Center practices.
-
-Cybersecurity is a field where learning never truly ends, and this repository represents one step forward in that ongoing journey.
-
+> To complement this theoretical foundation with practical experience, the subsequent sections of this repository document step-by-step walk-throughs and hands-on case studies conducted in simulated laboratory environments.
 
