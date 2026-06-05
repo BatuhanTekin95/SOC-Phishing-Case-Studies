@@ -12,7 +12,8 @@ The findings demonstrate how attackers leverage trusted financial themes and soc
 
 ## Technical Analysis & Incident Investigation
 
-<img width="859" height="865" alt="Ekran görüntüsü 2026-06-05 001210" src="https://github.com/user-attachments/assets/aceb2496-5455-461a-b5c5-b7b385d404d7" />
+<img width="786" height="880" alt="Ekran görüntüsü 2026-06-05 143225" src="https://github.com/user-attachments/assets/1433423d-e947-4dbc-b5a4-7bc9778ef19e" />
+
 
 As shown in the image above, the suspicious email was opened and analyzed using the Thunderbird email client. During the initial triage process, four critical indicators immediately stand out and have been highlighted with red boxes.
 
@@ -66,7 +67,8 @@ This record provides critical information regarding the domain's email authoriza
 
 When compared with the findings obtained during header analysis, a clear contradiction emerges. Earlier in the investigation, the true sending source was identified as 192.119.71.157, an IP address associated with the Hostwinds hosting infrastructure rather than Microsoft's Office 365 platform. Since this IP address is not included within the domain's authorized SPF policy, it is not permitted to send email on behalf of mutawamarine.com.
 
-This discrepancy explains why the receiving mail server recorded and SPF validation failure. The sending IP address did not match any of the hosts authorized by the domain's published SPF policy.
+Further review of the Authentication-Results header confirmed an SPF failure, while the message was recorded as dmarc=unknown. No DKIM validation result was present within the available header data, preventing further assessment of DKIM alignment. Although a definitive DMARC verdict could not be established, the combination of SPF failure, header anomalies, and infrastructure analysis provided sufficient evidence to classify the message as a domain-spoofing phishing attempt.
+
 
 By correlating the SPF record, DNS data, and email header artifacts, we can confidently conclude that this email represents a domain spoofing attack. The threat actor attempted to abuse the reputation of a trusted organization while delivering the message through infrastructure that was explicitly unauthorized by the domain owner's published email security policy.
 
