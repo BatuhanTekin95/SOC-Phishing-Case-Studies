@@ -2,13 +2,13 @@
 
 ## Executive Summary
 
-This report presents a comprehensive investigation of a phishing campaign disguised as a legitimate SWIFT financial transaction notification. The analysis follows a structured incident response methodology, including detailed email header examination, validation of email authentication mechanisms (SPF, DKIM, and DMARC), domain reputation assessment through DNS and WHOIS investigations, and static malware analysis of the attached malicious payload.
+This investigation analyzed a phishing email impersonating Mutawa Marine and delivering a malicious attachment disguised as a SWIFT financial transaction notification. The assessment was conducted from a Security Operations Center (SOC) perspective and included email header analysis, authentication validation (SPF, DKIM, and DMARC), DNS and infrastructure investigation, threat intelligence correlation, and malware reputation analysis.
 
-This investigation was conducted from the perspective of a SOC analyst, focusing on email triage, threat validation, indicator identification, and initial malware assessment. The case study serves as a practical demonstration of phishing investigation techniques commonly used in Security Operations Centers (SOCs).
+The investigation identified multiple indicators consistent with phishing activity. Email header examination revealed discrepancies between the claimed sender and the actual sending infrastructure, including the use of a malicious Reply-To address and an originating IP address associated with a third-party hosting provider. SPF validation failed, and analysis of the domain’s email security policies confirmed that the sending infrastructure was not authorized to transmit email on behalf of the impersonated organization.
 
-The objective of this investigation is to identify indicators of compromise (IOCs), determine the techniques used by the threat actor, and assess the overall legitimacy of the communication. Throughout the analysis, multiple phishing indicators were uncovered, including suspicious sender infrastructure, authentication failures, and malicious file characteristics consistent with credential theft and malware delivery tactics.
+Further analysis of the attachment revealed multiple file-type disguises intended to evade detection and increase the likelihood of user interaction. Reputation analysis identified the payload as a LokiBot variant, a credential-stealing malware family commonly distributed through phishing campaigns.
 
-The findings demonstrate how attackers leverage trusted financial themes and social engineering techniques to increase the likelihood of user interaction. This case study highlights the importance of email security controls, threat hunting procedures, and analyst-driven investigation techniques in detecting and mitigating phishing threats within an organizational environment.
+Based on the cumulative evidence gathered during the investigation, the analyzed email was classified as a malicious phishing attempt impersonating Mutawa Marine to deliver malware through a deceptive attachment.
 
 ## Technical Analysis & Incident Investigation
 
@@ -70,7 +70,7 @@ When compared with the findings obtained during header analysis, a clear contrad
 Further review of the Authentication-Results header confirmed an SPF failure, while the message was recorded as dmarc=unknown. No DKIM validation result was present within the available header data, preventing further assessment of DKIM alignment. Although a definitive DMARC verdict could not be established, the combination of SPF failure, header anomalies, and infrastructure analysis provided sufficient evidence to classify the message as a domain-spoofing phishing attempt.
 
 
-By correlating the SPF record, DNS data, and email header artifacts, we can confidently conclude that this email represents a domain spoofing attack. The threat actor attempted to abuse the reputation of a trusted organization while delivering the message through infrastructure that was explicitly unauthorized by the domain owner's published email security policy.
+By correlating the SPF record, DNS data, and email header artifacts, the email was assessed as a domain spoofing attempt. The threat actor attempted to abuse the reputation of a trusted organization while delivering the message through infrastructure that was explicitly unauthorized by the domain owner's published email security policy.
 
 
 <img width="823" height="428" alt="Ekran görüntüsü 2026-06-05 020652" src="https://github.com/user-attachments/assets/dbf72393-cd4e-4c9f-bdd6-d1eb74ce07a5" />
@@ -128,6 +128,11 @@ The Popular Threat Label section further categorizes the sample as a Trojan, Spy
 
 Based on the VirusTotal reputation data, file characteristics, and malware classification results, the attachment can be confidently identified as the primary malicious component of the phishing campaign and represents a significant security risk if executed on a victim system.
 
+## Potential Organizational Impact
+
+If successfully executed, the malicious attachment could have resulted in credential theft, unauthorized access to corporate systems, exposure of sensitive information, and potential follow-on malware deployment.
+
+Because the payload was identified as LokiBot, compromised credentials could have been exfiltrated from web browsers, email clients, FTP applications, and cryptocurrency wallets. Such access could facilitate lateral movement, account compromise, and further phishing activity within the organization.
 
 
 ## Indicators of Compromise (IOCs)
@@ -183,6 +188,14 @@ User Awareness
 
 * Educate users to verify unexpected financial notifications and attachments before opening them.
 * Train employees to identify common phishing indicators such as spoofed domains, unusual Reply-To addresses, and misleading filenames.
+
+## SOC Analyst Reflection
+
+From a SOC analyst perspective, this investigation demonstrated the importance of correlating email artifacts, authentication results, DNS records, and threat intelligence sources to accurately assess phishing activity.
+
+While individual indicators such as a suspicious Reply-To address or SPF failure may not be sufficient on their own, combining multiple sources of evidence enabled a confident classification of the email as malicious.
+
+This exercise reinforced practical skills related to email triage, IOC identification, threat intelligence validation, and phishing investigation workflows commonly performed within Security Operations Centers.
 
 ## Investigation Conclusion
 
