@@ -29,7 +29,7 @@ The Discover view was used extensively to query process creation events, analyze
 <img width="896" height="602" alt="Ekran görüntüsü 2026-06-10 202703" src="https://github.com/user-attachments/assets/83186eb8-9a19-4ca6-9dc0-79c8924f4e99" />
 
 
-*Phishing email delivered to the CEO using a previously compromised employee account.*
+> Phishing email delivered to the CEO using a previously compromised employee account.
 
 
 > Throughout this investigation, I used **Elastic Security** as the primary platform for log analysis and threat hunting. Elastic provides a centralized view of security events, allowing analysts to search, correlate, and investigate large volumes of telemetry from multiple data sources. In this lab, it was used to trace the attacker's activities, build a timeline of events, and assess the overall impact of the compromise.
@@ -38,13 +38,19 @@ The Discover view was used extensively to query process creation events, analyze
 
 Based on the information provided by the security team, I searched for activity related to the suspicious attachment, `ProjectFinancialSummary_Q3.pdf`, within the estimated incident timeframe.
 
+To identify any activity associated with the attachment, I searched for references to the file name across the collected endpoint telemetry.
+
+<img width="1719" height="39" alt="Ekran görüntüsü 2026-06-10 204607" src="https://github.com/user-attachments/assets/c3569247-dced-424a-8d3f-4b46c191e6d6" />
+
+> Elastic query used to identify process activity associated with the suspicious attachment.
+
 The search results revealed that the attachment was not a legitimate PDF file. Instead, it launched `mshta.exe`, which subsequently spawned additional processes including `xcopy.exe`, `rundll32.exe`, and PowerShell. This behavior strongly indicated the execution of a malicious HTA payload and marked the beginning of the compromise.
 
 
 <img width="1567" height="591" alt="Ekran görüntüsü 2026-06-10 205930" src="https://github.com/user-attachments/assets/02a6493f-826a-4b29-8bd6-0be7fb1b0b24" />
 
 
-*Elastic search results showing the execution chain triggered by the malicious attachment.*
+> Elastic search results showing the execution chain triggered by the malicious attachment.
 
 ### Process Analysis
 
@@ -56,13 +62,23 @@ Further analysis revealed the use of PowerShell to create a scheduled task that 
 
 The combination of `mshta.exe`, `xcopy.exe`, `rundll32.exe`, and PowerShell is highly suspicious and commonly associated with malware execution chains. At this stage of the investigation, it became clear that the attachment was being used to deploy and maintain a malicious payload on the victim's workstation.
 
-### Persistence Analysis
+## Persistence Analysis
 
-Further analysis of the PowerShell command line revealed an attempt to establish persistence on the compromised system. The script used the `New-ScheduledTaskAction` and `New-ScheduledTaskTrigger` cmdlets to create a scheduled task that executed `rundll32.exe` with the malicious `review.dat` payload.
+Further analysis of the PowerShell command line revealed that the malware attempted to establish persistence on the compromised host. The script leveraged the New-ScheduledTaskAction and New-ScheduledTaskTrigger cmdlets to create a scheduled task that executed rundll32.exe with the malicious review.dat payload.
 
-By reviewing the full command-line arguments, I identified the name of the scheduled task created by the malware: **Review**.
+<img width="1313" height="128" alt="2131312" src="https://github.com/user-attachments/assets/e4e5bf46-adbc-4215-b7ba-ce21e8aa16c0" />
 
-This persistence mechanism would allow the malicious DLL to be executed automatically on a recurring basis, ensuring that the attacker could maintain access even after the initial infection.
+> PowerShell command showing the creation of a scheduled task used to maintain persistence on the compromised host.
+
+By reviewing the full command-line arguments, I identified the name of the scheduled task created by the malware:
+
+**Discovered Scheduled Task**
+
+`Review`
+
+The command also revealed that the scheduled task was configured to execute `rundll32.exe` with the malicious DLL on a recurring schedule, ensuring continued execution of the payload after the initial infection.
+
+This persistence mechanism would allow the attacker to maintain access and re-establish malicious activity even if the original process terminated.
 
 ### Network Activity Analysis
 
