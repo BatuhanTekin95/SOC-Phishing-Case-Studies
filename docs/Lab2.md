@@ -148,21 +148,64 @@ This finding confirmed that the attacker had successfully accessed a remote shar
 
 ### Additional Credential Discovery
 
-After identifying the remote PowerShell script, I continued investigating activity related to file access on the compromised host.
+After identifying the remote PowerShell script (IT_Automation.ps1), I continued investigating activity related to file access on the compromised host.
 
 To locate references to files and script execution, I searched for PowerShell commands containing file-related activity associated with `WKSTN-0051`.
 
 <img width="477" height="32" alt="Ekran görüntüsü 2026-06-11 024123" src="https://github.com/user-attachments/assets/d573e7fa-b3db-4aa9-b13f-acbe5cf8ccb0" />
 
-The results revealed a PowerShell command that created a PSCredential object and supplied credentials directly within the script. The command was then used to execute actions on the remote host `WKSTN-1327`.
+The results revealed a command-line event where a PSCredential object was created and credentials were supplied directly within the command. The same event also showed that the credentials were used to execute actions remotely against WKSTN-1327 through Invoke-Command.
 
 <img width="925" height="117" alt="Ekran görüntüsü 2026-06-11 024215" src="https://github.com/user-attachments/assets/f54a5867-81d1-4f27-a1b0-7eec65888400" />
 
+*Command-line event revealing both the embedded credentials and the remote host targeted during the lateral movement attempt.*
+
 By examining the command-line arguments, I identified an additional credential pair embedded within the script:
 
-**QUICKLOGISTICS\allan.smith!Tr!ckyP@ssw0rd987**
+**QUICKLOGISTICS\allan.smith:Tr!ckyP@ssw0rd987**
 
-This discovery demonstrated that the attacker was actively harvesting credentials from accessible resources and using them to facilitate further lateral movement within the environment.
+Further examination of the same event showed that the credentials were being used against WKSTN-1327. This indicated that the attacker had already begun attempting lateral movement using the newly discovered account.
+
+As a result, I identified WKSTN-1327 as the host targeted during the attacker's lateral movement attempt.
+
+### Remote Execution on WKSTN-1327
+
+After identifying `WKSTN-1327` as the target of the lateral movement attempt, I shifted my focus to process creation events on that host.
+
+To investigate activity executed after the remote connection was established, I reviewed Sysmon Event ID 1 logs associated with `WKSTN-1327`.
+
+<img width="815" height="33" alt="2331" src="https://github.com/user-attachments/assets/5ad5db1b-8e65-4648-bbd0-19c4ee320b4c" />
+
+The results revealed the execution of `powershell.exe` with a Base64-encoded command (`-enc`). The process was spawned by `wsmprovhost.exe`, a Windows process commonly associated with PowerShell Remoting and WinRM sessions.
+
+<img width="1506" height="156" alt="324324" src="https://github.com/user-attachments/assets/03b82556-7983-430d-aef7-9d2c824a6634" />
+
+The presence of an encoded PowerShell command strongly suggested that the attacker was executing commands remotely on the host while attempting to conceal the underlying actions from casual inspection.
+
+This activity provided additional evidence that the attacker had successfully leveraged the harvested credentials to execute commands on a remote system and continue the intrusion.
+
+### Encoded PowerShell Analysis
+
+The remote execution event revealed a PowerShell command launched with the `-enc` parameter, indicating that the command had been Base64 encoded.
+
+To understand the attacker's actions, I extracted the encoded string and decoded it using CyberChef. During this process, I first applied the **From Base64** operation and then used **Remove Null Bytes** to clean the output and recover the original PowerShell script.
+
+<img width="1518" height="735" alt="3234" src="https://github.com/user-attachments/assets/e16a9d14-a7f7-4592-b5a7-09f4ef9aa3a2" />
+
+> CyberChef workflow used to decode the Base64-encoded PowerShell command and remove null bytes from the output.
+
+
+The decoded script revealed a PowerShell-based backdoor designed to communicate with an external server and execute commands received from the attacker. The script leveraged the .NET `WebClient` class to establish communication and retrieve additional instructions.
+
+Further analysis showed references to the URI `/admin/get.php`, suggesting that the malware was configured to contact a remote command-and-control (C2) endpoint. The script also used `IEX` (`Invoke-Expression`) to execute downloaded content directly in memory, a technique commonly used by attackers to avoid writing malicious files to disk.
+
+This finding confirmed that the attacker had successfully established a mechanism for remote command execution and ongoing communication with external infrastructure. The decoded payload also provided valuable insight into the attacker's post-exploitation activity and command-and-control methodology.
+
+
+
+
+
+
 
 
 
