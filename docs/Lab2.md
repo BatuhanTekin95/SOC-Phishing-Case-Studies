@@ -252,6 +252,8 @@ To identify credential dumping activity, I searched for Mimikatz execution event
 
 <img width="897" height="37" alt="423432" src="https://github.com/user-attachments/assets/a57a9125-400c-4ca6-b3c0-2f07437941c2" />
 
+> Elastic query used to identify Mimikatz execution events on WKSTN-1327 following the lateral movement attempt.
+
 The results revealed another execution of `mimikatz.exe` using the `sekurlsa::pth` module. Several command-line arguments immediately stood out during the analysis:
 
 * `sekurlsa::pth` – indicating a Pass-the-Hash operation.
@@ -260,11 +262,14 @@ The results revealed another execution of `mimikatz.exe` using the `sekurlsa::pt
 
 <img width="1533" height="44" alt="Ekran görüntüsü 2026-06-11 112307" src="https://github.com/user-attachments/assets/0704213a-6de6-4dc3-af11-26b9b00e1acd" />
 
+> Sysmon Event ID 1 record showing Mimikatz execution with the sekurlsa::pth module and the credential pair obtained by the attacker.
+
 By examining these parameters, I identified the newly dumped credential pair:
 
-**Discovered Credential Pair**
+### Discovered Credential Pair
 
-`administrator:00f80f2538dcb54e7adc715c0e7091ec`
+administrator:00f80f2538dcb54e7adc715c0e7091ec
+
 
 This finding demonstrated that the attacker continued harvesting credentials after moving laterally and was leveraging newly acquired hashes to expand access within the environment.
 
@@ -297,7 +302,7 @@ Several command-line arguments immediately stood out during the analysis:
 
 <img width="1560" height="123" alt="asda" src="https://github.com/user-attachments/assets/acb11f12-2989-4ac2-933e-38d18c2d6d1a" />
 
-> DCSync activity showing the accounts targeted by the attacker on the domain controller.
+> DCSync events showing password hash requests for both the administrator and backupda accounts on the domain controller.
 
 The attacker initially targeted the `administrator` account. However, further review of the DCSync events revealed an additional request against:
 
@@ -331,8 +336,24 @@ The downloaded file was named `ransomboogey.exe`, strongly suggesting that the a
 
 This finding demonstrated the final stage of the attacker's post-exploitation activity. What initially began as a phishing email had evolved into credential theft, lateral movement, Active Directory compromise, and ultimately the download of a ransomware payload. The investigation highlighted how a single successful phishing attempt enabled the attacker to progressively expand access throughout the environment.
 
+## MITRE ATT&CK Mapping
 
+The investigation revealed a multi-stage intrusion that aligned with several MITRE ATT&CK techniques. The attack began with a phishing email containing a malicious attachment and progressed through execution, persistence, privilege escalation, credential theft, lateral movement, Active Directory compromise, and ultimately ransomware deployment.
 
+| Tactic | Technique | ATT&CK ID |
+|----------|----------|----------|
+| Initial Access | Phishing: Spearphishing Attachment | T1566.001 |
+| Execution | Signed Binary Proxy Execution: Mshta | T1218.005 |
+| Persistence | Scheduled Task/Job: Scheduled Task | T1053.005 |
+| Command and Control | Application Layer Protocol: Web Protocols | T1071.001 |
+| Privilege Escalation | Abuse Elevation Control Mechanism: Bypass User Account Control | T1548.002 |
+| Credential Access | OS Credential Dumping | T1003 |
+| Credential Access | Use Alternate Authentication Material: Pass the Hash | T1550.002 |
+| Discovery | Network Share Discovery | T1135 |
+| Lateral Movement | Remote Services: PowerShell | T1021.006 |
+| Execution | PowerShell | T1059.001 |
+| Credential Access | DCSync | T1003.006 |
+| Impact | Data Encrypted for Impact | T1486 |
 
 
 
