@@ -123,6 +123,24 @@ During the investigation, analysts should continuously extract and validate key 
 
 Collected IOCs should be correlated with threat intelligence feeds to identify known phishing campaigns, adversary infrastructure, and related malicious activity.
 
+### IOC Example
+
+The following example demonstrates the types of Indicators of Compromise (IOCs) that SOC analysts commonly collect during a phishing investigation. These artifacts can be used for threat hunting, detection engineering, and incident response activities.
+
+| IOC Type          | Example                                                               |
+| ----------------- | --------------------------------------------------------------------- |
+| Sender Email      | [attacker@example.com](mailto:attacker@example.com)                   |
+| Reply-To Address  | [support-verification@mail.com](mailto:support-verification@mail.com) |
+| Source IP Address | 192.0.2.10                                                            |
+| Domain            | malicious-example.com                                                 |
+| URL               | hxxp://malicious-example[.]com/login                                  |
+| SHA-256 Hash      | a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef      |
+| Malware Family    | Information Stealer                                                   |
+| Attachment Name   | Invoice_2025.pdf.exe                                                  |
+
+> **Analyst Note:** Individual IOCs rarely provide sufficient evidence on their own. Effective phishing investigations rely on correlating multiple indicators, such as sender infrastructure, authentication results, URLs, file hashes, and attachment characteristics, to determine whether an email represents a genuine threat.
+
+
 ## Operational Security (OPSEC) Notice
 
 - **NEVER** interact directly with suspicious URLs, attachments, or phishing emails from a production workstation or corporate network.
@@ -138,26 +156,24 @@ Failure to maintain proper operational security can result in:
 
 Using controlled analysis environments significantly reduces risk while preserving forensic integrity.
 
-
 ## MITRE ATT&CK Mapping
 
-Common ATT&CK techniques observed during phishing investigations include:
+Common ATT&CK techniques observed during phishing investigations include the following. Mapping phishing-related activity to the MITRE ATT&CK framework helps analysts understand how an attack progresses beyond the initial email and provides a standardized method for describing adversary behavior.
 
-* **T1566 – Phishing**
-* **T1566.001 – Spearphishing Attachment**
-* **T1566.002 – Spearphishing Link**
-* **T1583 – Acquire Infrastructure**
-* **T1584 – Compromise Infrastructure**
-* **T1589 – Gather Victim Identity Information**
-* **T1204 – User Execution**
-* **T1059 – Command and Scripting Interpreter**
-
-Understanding these techniques enables analysts to correlate phishing activity with broader adversary behavior and improve detection engineering efforts.
+| Technique | ATT&CK ID |
+|------------|------------|
+| Phishing | T1566 |
+| Spearphishing Attachment | T1566.001 |
+| Spearphishing Link | T1566.002 |
+| User Execution | T1204 |
+| Command and Scripting Interpreter | T1059 |
 
 >**Analyst Note on MITRE ATT&CK Framework:**
 >MITRE ATT&CK (Adversarial Tactics, Techniques, and Common Knowledge) is a globally-accessible, structured knowledge base of adversary tactics and techniques based on real-world observations. Because threat actors constantly evolve their methods, tools, and bypass capabilities, **the MITRE ATT&CK framework is not static; it is continuously updated to reflect the shifting cyber threat landscape.**
 >
->As a SOC Analyst, mapping phishing indicators to this dynamic framework allows us to look beyond the initial compromise (Initial Access) and anticipate the attacker's subsequent moves (such as Execution or Credential Access), enabling proactive and intelligence-driven incident response.
+>As SOC analysts, mapping phishing indicators to the MITRE ATT&CK framework allows us to move beyond identifying the initial phishing email and better understand the potential stages that may follow.
+>
+>This approach helps analysts anticipate attacker behavior, improve detection capabilities, and conduct more effective incident response activities.
 
 ## Email Authentication, Delivery Controls & SMTP Analysis
 
