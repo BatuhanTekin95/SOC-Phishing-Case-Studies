@@ -24,15 +24,25 @@ The repository combines theoretical knowledge with practical investigations perf
 
 ### 01 - Phishing Fundamentals
 
-A comprehensive reference guide covering phishing attack methodologies, email delivery protocols, authentication mechanisms (SPF, DKIM, DMARC, and S/MIME), IOC collection, OSINT workflows, threat intelligence resources, SMTP analysis, and MITRE ATT&CK mapping. This section serves as the theoretical foundation for the practical phishing investigations included in this repository.
+Core phishing concepts, email anatomy, common attack techniques, authentication mechanisms, indicators of phishing, and investigation methodology.
+
+📖 [Open Phishing Fundamentals](docs/01-Phishing-Fundamentals.md)
+
+---
 
 ### 02 - Greenholt Phish Investigation
 
 Investigation of a phishing email involving header analysis, SPF/DMARC validation, IOC extraction, infrastructure analysis, and threat intelligence enrichment.
 
+🔍 [Open Greenholt Phish Investigation](docs/02-Greenholt-Phish-Investigation.md.md)
+
+---
+
 ### 03 - Boogeyman 3: Phishing to Ransomware Investigation
 
 End-to-end incident investigation following a phishing attack that progressed through malware execution, persistence, privilege escalation, credential dumping, lateral movement, Active Directory compromise, DCSync activity, and ransomware staging.
+
+🛡️ [Open Boogeyman 3 Investigation](docs/03-Boogeyman3-Phishing-to-Ransomware.md)
 
 ---
 
