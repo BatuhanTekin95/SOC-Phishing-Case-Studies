@@ -16,6 +16,15 @@ Using Elastic Security, I analyzed the available logs to reconstruct the attack 
 
 The goal of this investigation was not only to analyze the phishing email itself, but also to understand how the attacker used the initial compromise to move through the environment and assess the overall impact of the incident.
 
+### Elastic Security Overview
+
+Throughout this investigation, all log analysis and threat hunting activities were performed using **Elastic Security**. Elastic provides a centralized platform for collecting, searching, and correlating security telemetry from multiple sources.
+
+The Discover view was used extensively to query process creation events, analyze command-line activity, track network connections, and reconstruct the attack timeline throughout the investigation.
+
+<img width="1919" height="600" alt="32312321" src="https://github.com/user-attachments/assets/c8b4e5ac-8fc2-4c05-a8f7-fb5d87a993d3" />
+
+> Elastic Security Discover view used throughout the investigation to analyze endpoint telemetry, investigate process activity, and reconstruct the attack timeline.
 
 <img width="896" height="602" alt="Ekran görüntüsü 2026-06-10 202703" src="https://github.com/user-attachments/assets/83186eb8-9a19-4ca6-9dc0-79c8924f4e99" />
 
