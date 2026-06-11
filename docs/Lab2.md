@@ -284,7 +284,7 @@ The search results revealed a PowerShell command that used `Invoke-WebRequest` t
 
 > PowerShell command using Invoke-WebRequest to download the ransomware payload from an external server.
 
-The downloaded file was named `ransomboogey.exe`, strongly suggesting that the attacker was preparing to deploy ransomware within the environment.
+The downloaded file was named `ransomboogey.exe`, strongly suggesting that the attacker was preparing to deploy a ransomware payload within the environment.
 
 This finding demonstrated the final stage of the attacker's post-exploitation activity. What initially began as a phishing email had evolved into credential theft, lateral movement, Active Directory compromise, and ultimately the download of a ransomware payload. The investigation highlighted how a single successful phishing attempt enabled the attacker to progressively expand access throughout the environment.
 
