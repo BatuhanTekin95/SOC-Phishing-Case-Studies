@@ -46,21 +46,18 @@ To identify any activity associated with the attachment, I searched for referenc
 
 The search results revealed that the attachment was not a legitimate PDF file. Instead, it launched `mshta.exe`, which subsequently spawned additional processes including `xcopy.exe`, `rundll32.exe`, and PowerShell. This behavior strongly indicated the execution of a malicious HTA payload and marked the beginning of the compromise.
 
+To better understand the behavior of the payload, I examined the command-line arguments associated with the processes spawned by `mshta.exe`.
 
 <img width="1567" height="591" alt="Ekran görüntüsü 2026-06-10 205930" src="https://github.com/user-attachments/assets/02a6493f-826a-4b29-8bd6-0be7fb1b0b24" />
 
-
 > Elastic search results showing the execution chain triggered by the malicious attachment.
-
-### Process Analysis
-
-To better understand the behavior of the payload, I examined the command-line arguments associated with the processes spawned by `mshta.exe`.
 
 The investigation showed that the HTA file initiated a sequence of actions designed to execute and maintain the malicious payload on the system. First, `xcopy.exe` was used to copy a file named `review.dat` into the user's temporary directory. Shortly afterwards, `rundll32.exe` was executed to load the copied file as a DLL.
 
 Further analysis revealed the use of PowerShell to create a scheduled task that executed `rundll32.exe` with the malicious DLL. This indicated an attempt to establish persistence, allowing the payload to execute automatically on a recurring basis.
 
-The combination of `mshta.exe`, `xcopy.exe`, `rundll32.exe`, and PowerShell is highly suspicious and commonly associated with malware execution chains. At this stage of the investigation, it became clear that the attachment was being used to deploy and maintain a malicious payload on the victim's workstation.
+The combination of `mshta.exe`, `xcopy.exe`, `rundll32.exe`, and PowerShell is highly suspicious and commonly associated with malware execution chains. At this stage of the investigation, it became clear that the attachment was being used to deploy, execute, and maintain a malicious payload on the victim's workstation.
+
 
 ## Persistence Analysis
 
