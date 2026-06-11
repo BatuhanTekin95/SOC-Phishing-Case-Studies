@@ -85,9 +85,13 @@ To investigate potential outbound connections, I searched for Sysmon Event ID 3 
 
 <img width="541" height="35" alt="Ekran görüntüsü 2026-06-10 215816" src="https://github.com/user-attachments/assets/c0c79f00-46df-4d01-8fd9-49b16ad9ee65" />
 
+> Elastic query used to identify outbound network connections initiated by processes on the compromised host.
+
 The results revealed a connection originating from the compromised workstation (`10.10.155.159`) to the external IP address `165.232.170.151` over TCP port `80`.
 
 <img width="1168" height="101" alt="Ekran görüntüsü 2026-06-10 215900" src="https://github.com/user-attachments/assets/9e1e527b-0bd5-46db-bfab-27ae987b12df" />
+
+> Network connection event showing communication from the compromised host (10.10.155.159) to the external address 165.232.170.151 over TCP port 80.
 
 This connection was particularly suspicious because it occurred shortly after the execution of the malicious payload. The external destination was likely being used by the malware for command-and-control (C2) communication or to retrieve additional instructions from the attacker.
 
@@ -101,11 +105,13 @@ To identify the technique used, I searched for several executables commonly asso
 
 <img width="902" height="33" alt="Ekran görüntüsü 2026-06-10 221425" src="https://github.com/user-attachments/assets/ea9ea40d-7e77-4fdc-9359-5986449b7fbe" />
 
-*Elastic query used to identify executables commonly associated with UAC bypass techniques.*
+> Elastic query used to identify executables commonly associated with UAC bypass techniques.
 
 The investigation revealed the execution of `fodhelper.exe` on the compromised host shortly after the malicious payload established persistence.
 
 <img width="989" height="69" alt="Ekran görüntüsü 2026-06-10 221506" src="https://github.com/user-attachments/assets/4e6bcb04-f636-4a0a-b381-0053dc596491" />
+
+> Elastic event confirming fodhelper.exe as the executable used by the attacker to perform the UAC bypass.
 
 This finding confirmed that the attacker leveraged **fodhelper.exe** to perform a UAC bypass. This technique is frequently abused by threat actors because `fodhelper.exe` is an auto-elevated Windows binary that can be manipulated through registry modifications to launch arbitrary commands with elevated privileges.
 
@@ -119,13 +125,13 @@ To identify potential credential dumping activity, I searched for references to 
 
 <img width="260" height="35" alt="Ekran görüntüsü 2026-06-10 222040" src="https://github.com/user-attachments/assets/29e50bcb-8b3a-4591-b2d2-de8498a46206" />
 
-*Query used to identify references to GitHub within process command-line arguments.*
+> Query used to identify references to GitHub within process command-line arguments.
 
 The search results revealed a PowerShell command that downloaded a ZIP archive from a GitHub release page.
 
 <img width="196" height="128" alt="Ekran görüntüsü 2026-06-10 222107" src="https://github.com/user-attachments/assets/69dde305-a34c-40d0-8538-14dcd3e87dbf" />
 
-*PowerShell command used to download Mimikatz from a GitHub release page.*
+> PowerShell command used to download Mimikatz from a GitHub release page.
 
 Further examination of the command line showed that the attacker downloaded **Mimikatz**, a well-known credential dumping tool commonly used to extract plaintext credentials, password hashes, Kerberos tickets, and other authentication material from compromised systems.
 
@@ -138,11 +144,14 @@ After identifying the download of Mimikatz, I searched for evidence of the tool 
 
 <img width="157" height="36" alt="Ekran görüntüsü 2026-06-11 015455" src="https://github.com/user-attachments/assets/4df56b44-09fb-45a1-a64b-80276f0f9703" />
 
+> Elastic query used to search for Mimikatz execution events within the collected endpoint telemetry.
+
 The results confirmed that `mimikatz.exe` was executed with the `sekurlsa::pth` module, a technique commonly used to perform Pass-the-Hash attacks. This indicated that the attacker had already obtained credential material and was attempting to authenticate using NTLM hashes rather than plaintext passwords.
 
 
 <img width="676" height="98" alt="Ekran görüntüsü 2026-06-11 015521" src="https://github.com/user-attachments/assets/a2c44584-73dd-4475-bda7-4b7f145accec" />
 
+> Mimikatz execution event showing the use of the sekurlsa::pth module and revealing the credential pair used during the Pass-the-Hash attack.
 
 By examining the command-line arguments associated with the execution of Mimikatz, I identified the credential pair used by the attacker:
 
@@ -160,11 +169,15 @@ To identify potential file share enumeration activity, I searched for command-li
 
 <img width="467" height="38" alt="Ekran görüntüsü 2026-06-11 021543" src="https://github.com/user-attachments/assets/4fef2135-1227-494e-b383-4928159a45f8" />
 
+> Elastic query used to search for SMB share access and file enumeration activity on remote systems.
+
 The search results revealed PowerShell activity interacting with a remote file share hosted on `WKSTN-1327`. The command referenced a script stored within a shared directory:
 
 `\\WKSTN-1327.quicklogistics.org\ITFiles\IT_Automation.ps1`
 
 <img width="644" height="104" alt="Ekran görüntüsü 2026-06-11 021604" src="https://github.com/user-attachments/assets/50bdedf8-65de-49de-aa69-62e6483be595" />
+
+> PowerShell activity showing access to a remote SMB share and the discovery of the IT_Automation.ps1 script on WKSTN-1327.
 
 This finding confirmed that the attacker had successfully accessed a remote share and was actively exploring resources available through the newly acquired credentials. The discovery also provided evidence of lateral movement activity, as the attacker was no longer operating solely on the initially compromised workstation.
 
@@ -176,19 +189,23 @@ To locate references to files and script execution, I searched for PowerShell co
 
 <img width="477" height="32" alt="Ekran görüntüsü 2026-06-11 024123" src="https://github.com/user-attachments/assets/d573e7fa-b3db-4aa9-b13f-acbe5cf8ccb0" />
 
+> Elastic query used to identify PowerShell activity related to file access and script execution on WKSTN-0051.
+
 The results revealed a command-line event where a PSCredential object was created and credentials were supplied directly within the command. The same event also showed that the credentials were used to execute actions remotely against WKSTN-1327 through Invoke-Command.
 
 <img width="925" height="117" alt="Ekran görüntüsü 2026-06-11 024215" src="https://github.com/user-attachments/assets/f54a5867-81d1-4f27-a1b0-7eec65888400" />
 
-*Command-line event revealing both the embedded credentials and the remote host targeted during the lateral movement attempt.*
+> Command-line event revealing both the embedded credentials and the remote host targeted during the lateral movement attempt.
 
 By examining the command-line arguments, I identified an additional credential pair embedded within the script:
 
-**QUICKLOGISTICS\allan.smith:Tr!ckyP@ssw0rd987**
+### Discovered Credential Pair
+
+QUICKLOGISTICS\allan.smith:Tr!ckyP@ssw0rd987
 
 Further examination of the same event showed that the credentials were being used against WKSTN-1327. This indicated that the attacker had already begun attempting lateral movement using the newly discovered account.
 
-As a result, I identified WKSTN-1327 as the host targeted during the attacker's lateral movement attempt.
+As a result, I identified **WKSTN-1327** as the host targeted during the attacker's lateral movement attempt.
 
 ### Remote Execution on WKSTN-1327
 
@@ -198,9 +215,13 @@ To investigate activity executed after the remote connection was established, I 
 
 <img width="815" height="33" alt="2331" src="https://github.com/user-attachments/assets/5ad5db1b-8e65-4648-bbd0-19c4ee320b4c" />
 
+> Elastic query used to identify process creation events on WKSTN-1327 following the lateral movement attempt.
+
 The results revealed the execution of `powershell.exe` with a Base64-encoded command (`-enc`). The process was spawned by `wsmprovhost.exe`, a Windows process commonly associated with PowerShell Remoting and WinRM sessions.
 
 <img width="1506" height="156" alt="324324" src="https://github.com/user-attachments/assets/03b82556-7983-430d-aef7-9d2c824a6634" />
+
+> Sysmon Event ID 1 record revealing the execution of a Base64-encoded PowerShell command spawned by wsmprovhost.exe on WKSTN-1327.
 
 The presence of an encoded PowerShell command strongly suggested that the attacker was executing commands remotely on the host while attempting to conceal the underlying actions from casual inspection.
 
