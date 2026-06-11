@@ -24,7 +24,7 @@ The repository combines theoretical knowledge with practical investigations perf
 
 ### 01 - Phishing Fundamentals
 
-Core phishing concepts, email anatomy, common attack techniques, authentication mechanisms, indicators of phishing, and investigation methodology.
+A comprehensive reference guide covering phishing attack methodologies, email delivery protocols, authentication mechanisms (SPF, DKIM, DMARC, and S/MIME), IOC collection, OSINT workflows, threat intelligence resources, SMTP analysis, and MITRE ATT&CK mapping. This section serves as the theoretical foundation for the practical phishing investigations included in this repository.
 
 ### 02 - Greenholt Phish Investigation
 
