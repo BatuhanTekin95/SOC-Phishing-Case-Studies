@@ -201,14 +201,92 @@ Further analysis showed references to the URI `/admin/get.php`, suggesting that 
 
 This finding confirmed that the attacker had successfully established a mechanism for remote command execution and ongoing communication with external infrastructure. The decoded payload also provided valuable insight into the attacker's post-exploitation activity and command-and-control methodology.
 
+### Additional Credential Dumping
+
+After identifying remote execution activity on `WKSTN-1327`, I investigated whether the attacker attempted to harvest additional credentials from the newly compromised host.
+
+To identify credential dumping activity, I searched for Mimikatz execution events on `WKSTN-1327` by reviewing Sysmon Event ID 1 (Process Creation) logs.
+
+<img width="897" height="37" alt="423432" src="https://github.com/user-attachments/assets/a57a9125-400c-4ca6-b3c0-2f07437941c2" />
+
+The results revealed another execution of `mimikatz.exe` using the `sekurlsa::pth` module. Several command-line arguments immediately stood out during the analysis:
+
+* `sekurlsa::pth` – indicating a Pass-the-Hash operation.
+* `/user:` – identifying the targeted account.
+* `/ntlm:` – containing the NTLM hash associated with the account.
+
+<img width="1533" height="44" alt="Ekran görüntüsü 2026-06-11 112307" src="https://github.com/user-attachments/assets/0704213a-6de6-4dc3-af11-26b9b00e1acd" />
+
+By examining these parameters, I identified the newly dumped credential pair:
+
+**Discovered Credential Pair**
+
+`administrator:00f80f2538dcb54e7adc715c0e7091ec`
+
+This finding demonstrated that the attacker continued harvesting credentials after moving laterally and was leveraging newly acquired hashes to expand access within the environment.
 
 
+### Domain Controller Access and DCSync Activity
 
+Following the successful compromise of `WKSTN-1327`, I continued investigating the attacker's actions to determine whether access had been expanded further within the environment.
 
+While reviewing process creation events on `WKSTN-1327`, I observed PowerShell activity interacting with `\\DC01.quicklogistics.org\c$`, indicating that the attacker had begun accessing the domain controller.
 
+<img width="1544" height="116" alt="234324323432" src="https://github.com/user-attachments/assets/05bad9c6-e6e2-4c9c-a5a5-16afeb3951eb" />
 
+> PowerShell activity showing access to the administrative share on DC01, identifying the domain controller targeted by the attacker.
 
+This activity allowed me to identify **DC01** as the domain controller within the Quick Logistics environment.
 
+To investigate potential credential theft from Active Directory, I searched for Mimikatz activity associated with the domain controller.
+
+<img width="707" height="30" alt="ads" src="https://github.com/user-attachments/assets/9ea34662-061c-472f-a6d1-078d46389cf6" />
+
+> Elastic query used to identify Mimikatz activity on the domain controller.
+
+The results revealed the execution of Mimikatz using the `lsadump::dcsync` module, a technique that allows attackers to request password hashes directly from Active Directory by impersonating a domain controller.
+
+Several command-line arguments immediately stood out during the analysis:
+
+* `lsadump::dcsync` – indicating a DCSync attack.
+* `/domain:quicklogistics.org` – identifying the targeted domain.
+* `/user:` – identifying the account being requested from Active Directory.
+
+<img width="1560" height="123" alt="asda" src="https://github.com/user-attachments/assets/acb11f12-2989-4ac2-933e-38d18c2d6d1a" />
+
+> DCSync activity showing the accounts targeted by the attacker on the domain controller.
+
+The attacker initially targeted the `administrator` account. However, further review of the DCSync events revealed an additional request against:
+
+**Discovered Account**
+
+`backupda`
+
+This finding confirmed that the attacker had successfully reached the domain controller and was actively extracting credential material from Active Directory using DCSync techniques. The discovery of the `backupda` account demonstrated that the attacker was expanding beyond standard administrative accounts and targeting additional privileged credentials within the domain.
+
+### Ransomware Download Activity
+
+After obtaining additional credentials from the domain controller, I continued investigating the attacker's post-exploitation activity to determine the next stage of the attack.
+
+To identify potential malware downloads, I searched for PowerShell commands containing the `iwr` (`Invoke-WebRequest`) cmdlet. This cmdlet is commonly used by attackers to download files from remote servers and is frequently observed during malware delivery and post-exploitation activities.
+
+<img width="750" height="34" alt="234324" src="https://github.com/user-attachments/assets/491bb80f-b785-4749-9421-2591423770db" />
+
+> Elastic query used to identify PowerShell download activity on the domain controller.
+
+The search results revealed a PowerShell command that used `Invoke-WebRequest` to download an executable file from an external location:
+
+**Downloaded Payload URL**
+
+`http://ff.sillytechninja.io/ransomboogey.exe`
+
+<img width="1553" height="50" alt="132312" src="https://github.com/user-attachments/assets/e20312ad-8e75-4ae0-884f-1bfa5ba01225" />
+
+> PowerShell command using Invoke-WebRequest to download the ransomware payload from an external server.
+
+The downloaded file was named `ransomboogey.exe`, strongly suggesting that the attacker was preparing to deploy ransomware within the environment.
+
+This finding demonstrated the final stage of the attacker's post-exploitation activity. What initially began as a phishing email had evolved into credential theft, lateral movement, Active Directory compromise, and ultimately the download of a ransomware payload. The investigation highlighted how a single successful phishing attempt enabled the attacker to progressively expand access throughout the environment.
 
 
 
