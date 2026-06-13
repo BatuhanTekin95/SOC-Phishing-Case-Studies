@@ -38,13 +38,15 @@ Investigation of a phishing email involving header analysis, SPF/DMARC validatio
 
 ---
 
-### 03 - Boogeyman 3: Phishing to Ransomware Investigation
+## 03 - Boogeyman3: Phishing-to-Ransomware Investigation (Elastic Security)
 
-End-to-end incident investigation following a phishing attack that progressed through malware execution, persistence, privilege escalation, credential dumping, lateral movement, Active Directory compromise, DCSync activity, and ransomware staging.
+End-to-end incident investigation following a phishing attack that progressed through malware execution, persistence, privilege escalation, credential dumping, lateral movement, Active Directory compromise, DCSync activity, and ransomware deployment using Elastic Security.
 
-🛡️ [Open Boogeyman 3 Investigation](docs/03-Boogeyman3-Phishing-to-Ransomware.md)
+🛡️ [Open Boogeyman3: Phishing-to-Ransomware Investigation (Elastic Security)](https://github.com/BatuhanTekin95/SOC-Phishing-Case-Studies/blob/main/docs/03-Boogeyman3-Phishing-to-Ransomware-Investigation-Elastic-Security.md)
 
 ---
+
+
 
 ## Investigation Methodology
 
