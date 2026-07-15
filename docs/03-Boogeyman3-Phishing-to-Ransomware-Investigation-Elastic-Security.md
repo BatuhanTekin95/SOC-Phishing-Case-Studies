@@ -1,373 +1,350 @@
-# Boogeyman 3
+# Boogeyman3: Phishing to Ransomware Staging
 
-<img width="554" height="133" alt="Ekran görüntüsü 2026-06-10 202405" src="https://github.com/user-attachments/assets/af50f65e-4c82-4f89-9c5f-3e165d0f0327" />
+<img width="554" height="133" alt="Boogeyman3 lab title banner" src="https://github.com/user-attachments/assets/af50f65e-4c82-4f89-9c5f-3e165d0f0327" />
 
+## Executive Summary
 
-## Introduction
+I used Elastic Security and Sysmon telemetry to investigate an intrusion at the fictional Quick Logistics LLC environment. The investigation began with a phishing attachment reported by the CEO and developed into a multi-host incident involving malicious HTA execution, scheduled-task persistence, suspicious `fodhelper.exe` activity, Pass-the-Hash, remote PowerShell, DCSync command activity, and the download of a ransomware-named executable.
 
+The evidence confirms that the attacker transferred `ransomboogey.exe` into the environment. The available telemetry does not show encryption activity, ransom-note creation, or the operational impact of the downloaded file. I therefore describe the final stage as ransomware staging rather than confirmed data encryption.
 
-In this lab, I investigated a phishing-related security incident involving Quick Logistics LLC. The threat actor, known as "Boogeyman", had already gained access to the environment through a compromised employee account and remained undetected while waiting for an opportunity to expand the attack.
+## Lab Scope
 
-The next phase of the attack targeted the company's CEO, Evan Hutchinson. A phishing email containing a malicious attachment was delivered to the victim. Although the email appeared suspicious, the attachment was still opened. After noticing that nothing seemed to happen, the user reported the email to the security team for further investigation.
+| Item | Details |
+| --- | --- |
+| Scenario | TryHackMe Boogeyman3 training lab |
+| Investigation window | 29–30 August 2023 |
+| Primary platform | Elastic Security Discover |
+| Main telemetry | Sysmon process and network events, PowerShell command lines |
+| Initial victim | CEO Evan Hutchinson |
+| Initial host | `WKSTN-0051` |
+| Lateral movement target | `WKSTN-1327` |
+| Domain controller | `DC01` |
+| Final observed action | Download of `ransomboogey.exe` |
 
-During the initial investigation, the security team discovered the downloaded attachment on the CEO's workstation and determined that the incident most likely occurred between August 29 and August 30, 2023. While this provided an initial lead, the full scope of the compromise was still unclear.
+All credentials and hashes in this report are synthetic lab artifacts. I partially mask them in the written report even though the original lab screenshots may display the complete values.
 
-Using Elastic Security, I analyzed the available logs to reconstruct the attack timeline and understand what happened after the attachment was opened. Throughout the investigation, I identified multiple stages of the attack, including credential theft, remote system access, network share enumeration, and lateral movement across several hosts.
+## Key Findings
 
-The goal of this investigation was not only to analyze the phishing email itself, but also to understand how the attacker used the initial compromise to move through the environment and assess the overall impact of the incident.
+| Finding | Evidence level | Assessment |
+| --- | --- | --- |
+| Phishing attachment triggered an HTA-based process chain | Confirmed | `mshta.exe` was followed by `xcopy.exe`, `rundll32.exe`, and PowerShell activity |
+| Scheduled-task persistence | Confirmed | PowerShell created the `Review` task to launch `rundll32.exe` with `review.dat` |
+| External HTTP communication | Confirmed connection; purpose assessed | Sysmon recorded traffic to `165.232.170.151:80`; C2 purpose is likely but not proven by network content |
+| UAC bypass using `fodhelper.exe` | Consistent with technique | Execution was observed, but the supporting registry hijack was not available |
+| Pass-the-Hash | Confirmed command activity | Mimikatz used `sekurlsa::pth` with an NTLM hash |
+| WinRM lateral movement | High confidence | `wsmprovhost.exe` spawned encoded PowerShell on `WKSTN-1327` |
+| DCSync | Confirmed attempt | `lsadump::dcsync` command activity targeted privileged accounts; successful hash extraction was not independently verified |
+| Ransomware payload transfer | Confirmed | PowerShell downloaded `ransomboogey.exe`; file execution and encryption were not shown |
 
-### Elastic Security Overview
+## Investigation Timeline
 
-Throughout this investigation, all log analysis and threat hunting activities were performed using **Elastic Security**. Elastic provides a centralized platform for collecting, searching, and correlating security telemetry from multiple sources.
+| Stage | Host | Main observation |
+| --- | --- | --- |
+| Initial execution | `WKSTN-0051` | PDF-themed attachment associated with `mshta.exe` process chain |
+| Payload execution | `WKSTN-0051` | `review.dat` copied and loaded with `rundll32.exe` |
+| Persistence | `WKSTN-0051` | Scheduled task named `Review` created |
+| Network activity | `WKSTN-0051` | HTTP connection to `165.232.170.151` |
+| Privilege escalation attempt | `WKSTN-0051` | Suspicious `fodhelper.exe` execution |
+| Tool transfer | `WKSTN-0051` | Mimikatz downloaded from GitHub |
+| Alternate authentication | `WKSTN-0051` | `sekurlsa::pth` used with the `itadmin` NTLM hash |
+| Credential exposure | `WKSTN-0051` | Plaintext lab credentials found in `IT_Automation.ps1` |
+| Lateral movement | `WKSTN-1327` | WinRM/PowerShell Remoting activity and encoded command execution |
+| Privileged access activity | `WKSTN-1327` / domain | Pass-the-Hash and DCSync command activity observed |
+| Payload staging | Domain environment | `ransomboogey.exe` downloaded with PowerShell |
 
-The Discover view was used extensively to query process creation events, analyze command-line activity, track network connections, and reconstruct the attack timeline throughout the investigation.
+## Elastic Security Workflow
 
-<img width="1919" height="600" alt="32312321" src="https://github.com/user-attachments/assets/c8b4e5ac-8fc2-4c05-a8f7-fb5d87a993d3" />
+<img width="1919" height="600" alt="Elastic Security Discover view used to search and correlate endpoint telemetry" src="https://github.com/user-attachments/assets/c8b4e5ac-8fc2-4c05-a8f7-fb5d87a993d3" />
 
-> Elastic Security Discover view used throughout the investigation to analyze endpoint telemetry, investigate process activity, and reconstruct the attack timeline.
+I used Elastic Discover to filter the incident time range, review process relationships, and correlate activity across hosts. The KQL examples below reproduce the investigation logic. Field names may need adjustment if a different Elastic integration or ECS mapping is used.
 
-<img width="896" height="602" alt="Ekran görüntüsü 2026-06-10 202703" src="https://github.com/user-attachments/assets/83186eb8-9a19-4ca6-9dc0-79c8924f4e99" />
+<img width="896" height="602" alt="Phishing email delivered to the CEO from a previously compromised employee account" src="https://github.com/user-attachments/assets/83186eb8-9a19-4ca6-9dc0-79c8924f4e99" />
 
+The reported attachment was named `ProjectFinancialSummary_Q3.pdf`. The investigation started by searching for this value across process command lines.
 
-> Phishing email delivered to the CEO using a previously compromised employee account.
+## Initial Execution
 
+```kql
+process.command_line : "*ProjectFinancialSummary_Q3.pdf*"
+```
 
-> Throughout this investigation, I used **Elastic Security** as the primary platform for log analysis and threat hunting. Elastic provides a centralized view of security events, allowing analysts to search, correlate, and investigate large volumes of telemetry from multiple data sources. In this lab, it was used to trace the attacker's activities, build a timeline of events, and assess the overall impact of the compromise.
+<img width="1719" height="39" alt="Elastic KQL search for the reported ProjectFinancialSummary Q3 attachment" src="https://github.com/user-attachments/assets/c3569247-dced-424a-8d3f-4b46c191e6d6" />
 
-## Initial Analysis
+The results associated the attachment with `mshta.exe`, followed by `xcopy.exe`, `rundll32.exe`, and PowerShell. This process pattern is inconsistent with normal PDF viewing and supports execution of HTA content or a file masquerading as a PDF.
 
-Based on the information provided by the security team, I searched for activity related to the suspicious attachment, `ProjectFinancialSummary_Q3.pdf`, within the estimated incident timeframe.
+```kql
+process.name : ("mshta.exe" or "xcopy.exe" or "rundll32.exe" or "powershell.exe") and
+(process.parent.name : "mshta.exe" or process.command_line : "*review.dat*")
+```
 
-To identify any activity associated with the attachment, I searched for references to the file name across the collected endpoint telemetry.
+<img width="1567" height="591" alt="Elastic process events showing mshta, xcopy, rundll32, and PowerShell in the attachment execution chain" src="https://github.com/user-attachments/assets/02a6493f-826a-4b29-8bd6-0be7fb1b0b24" />
 
-<img width="1719" height="39" alt="Ekran görüntüsü 2026-06-10 204607" src="https://github.com/user-attachments/assets/c3569247-dced-424a-8d3f-4b46c191e6d6" />
+`xcopy.exe` copied `review.dat` to a temporary location and `rundll32.exe` loaded the file. PowerShell activity then created a recurring execution mechanism.
 
-> Elastic query used to identify process activity associated with the suspicious attachment.
+## Scheduled-Task Persistence
 
-The search results revealed that the attachment was not a legitimate PDF file. Instead, it launched `mshta.exe`, which subsequently spawned additional processes including `xcopy.exe`, `rundll32.exe`, and PowerShell. This behavior strongly indicated the execution of a malicious HTA payload and marked the beginning of the compromise.
+```kql
+process.name : "powershell.exe" and
+process.command_line : ("*New-ScheduledTaskAction*" and "*New-ScheduledTaskTrigger*" and "*rundll32*")
+```
 
-To better understand the behavior of the payload, I examined the command-line arguments associated with the processes spawned by `mshta.exe`.
+<img width="1313" height="128" alt="PowerShell command creating the Review scheduled task to run rundll32 with review.dat" src="https://github.com/user-attachments/assets/e4e5bf46-adbc-4215-b7ba-ce21e8aa16c0" />
 
-<img width="1567" height="591" alt="Ekran görüntüsü 2026-06-10 205930" src="https://github.com/user-attachments/assets/02a6493f-826a-4b29-8bd6-0be7fb1b0b24" />
+The command created a scheduled task named `Review` that launched `rundll32.exe` with `review.dat`. The command line directly supports scheduled-task persistence.
 
-> Elastic search results showing the execution chain triggered by the malicious attachment.
+## Network Activity
 
-The investigation showed that the HTA file initiated a sequence of actions designed to execute and maintain the malicious payload on the system. First, `xcopy.exe` was used to copy a file named `review.dat` into the user's temporary directory. Shortly afterwards, `rundll32.exe` was executed to load the copied file as a DLL.
+```kql
+event.code : "3" and
+source.ip : "10.10.155.159" and
+destination.ip : "165.232.170.151" and
+destination.port : 80
+```
 
-Further analysis revealed the use of PowerShell to create a scheduled task that executed `rundll32.exe` with the malicious DLL. This indicated an attempt to establish persistence, allowing the payload to execute automatically on a recurring basis.
+<img width="541" height="35" alt="Elastic query for Sysmon network connection Event ID 3" src="https://github.com/user-attachments/assets/c0c79f00-46df-4d01-8fd9-49b16ad9ee65" />
 
-The combination of `mshta.exe`, `xcopy.exe`, `rundll32.exe`, and PowerShell is highly suspicious and commonly associated with malware execution chains. At this stage of the investigation, it became clear that the attachment was being used to deploy, execute, and maintain a malicious payload on the victim's workstation.
+<img width="1168" height="101" alt="Sysmon network event from the compromised workstation to 165.232.170.151 on TCP port 80" src="https://github.com/user-attachments/assets/9e1e527b-0bd5-46db-bfab-27ae987b12df" />
 
+The connection occurred after the malicious process activity. Its timing and destination make command-and-control or follow-on retrieval plausible. Because the lab did not include packet content or a confirmed server response, I record the connection as confirmed and its purpose as an assessment.
 
-## Persistence Analysis
+## Suspected UAC Bypass
 
-Further analysis of the PowerShell command line revealed that the malware attempted to establish persistence on the compromised host. The script leveraged the New-ScheduledTaskAction and New-ScheduledTaskTrigger cmdlets to create a scheduled task that executed rundll32.exe with the malicious review.dat payload.
+```kql
+process.name : (
+  "fodhelper.exe" or "computerdefaults.exe" or "sdclt.exe" or
+  "eventvwr.exe" or "slui.exe" or "wsreset.exe" or "cmstp.exe"
+)
+```
 
-<img width="1313" height="128" alt="2131312" src="https://github.com/user-attachments/assets/e4e5bf46-adbc-4215-b7ba-ce21e8aa16c0" />
+<img width="902" height="33" alt="Elastic query for Windows binaries commonly reviewed during UAC bypass investigations" src="https://github.com/user-attachments/assets/ea9ea40d-7e77-4fdc-9359-5986449b7fbe" />
 
-> PowerShell command showing the creation of a scheduled task used to maintain persistence on the compromised host.
+<img width="989" height="69" alt="Process event showing fodhelper.exe execution on the compromised host" src="https://github.com/user-attachments/assets/4e6bcb04-f636-4a0a-b381-0053dc596491" />
 
-By reviewing the full command-line arguments, I identified the name of the scheduled task created by the malware:
+`fodhelper.exe` is an auto-elevated Windows binary that can be abused after specific registry values are modified. Its execution in this sequence is suspicious and consistent with a UAC bypass attempt. To confirm the full technique, I would also require the relevant registry modification, parent process, command line, and resulting elevated child process.
 
-**Discovered Scheduled Task**
+## Mimikatz Download
 
-`Review`
+The initial search used GitHub as a lead because the attacker downloaded a tool from a release page. A broad GitHub search can be noisy, so production hunting should add process, user, host, and time context.
 
-The command also revealed that the scheduled task was configured to execute `rundll32.exe` with the malicious DLL on a recurring schedule, ensuring continued execution of the payload after the initial infection.
+```kql
+process.name : "powershell.exe" and
+process.command_line : ("*github.com*" and ("*Invoke-WebRequest*" or "*iwr*" or "*DownloadFile*"))
+```
 
-This persistence mechanism would allow the attacker to maintain access and re-establish malicious activity even if the original process terminated.
+<img width="260" height="35" alt="Elastic query for PowerShell command lines referencing GitHub" src="https://github.com/user-attachments/assets/29e50bcb-8b3a-4591-b2d2-de8498a46206" />
 
-### Network Activity Analysis
+<img width="196" height="128" alt="PowerShell event showing a Mimikatz archive downloaded from a GitHub release" src="https://github.com/user-attachments/assets/69dde305-a34c-40d0-8538-14dcd3e87dbf" />
 
-After identifying the persistence mechanism, I shifted my focus to network activity generated by the compromised host.
+The command confirms tool transfer. Downloading Mimikatz indicates credential-access intent but does not, by itself, prove credential dumping succeeded.
 
-To investigate potential outbound connections, I searched for Sysmon Event ID 3 events, which record network connections initiated by processes on the system.
+## Pass-the-Hash Activity
 
-<img width="541" height="35" alt="Ekran görüntüsü 2026-06-10 215816" src="https://github.com/user-attachments/assets/c0c79f00-46df-4d01-8fd9-49b16ad9ee65" />
+```kql
+process.name : "mimikatz.exe" and process.command_line : "*sekurlsa::pth*"
+```
 
-> Elastic query used to identify outbound network connections initiated by processes on the compromised host.
+<img width="157" height="36" alt="Elastic query for Mimikatz process execution" src="https://github.com/user-attachments/assets/4df56b44-09fb-45a1-a64b-80276f0f9703" />
 
-The results revealed a connection originating from the compromised workstation (`10.10.155.159`) to the external IP address `165.232.170.151` over TCP port `80`.
+<img width="676" height="98" alt="Mimikatz command line using sekurlsa pth with the itadmin account and an NTLM hash" src="https://github.com/user-attachments/assets/a2c44584-73dd-4475-bda7-4b7f145accec" />
 
-<img width="1168" height="101" alt="Ekran görüntüsü 2026-06-10 215900" src="https://github.com/user-attachments/assets/9e1e527b-0bd5-46db-bfab-27ae987b12df" />
+The `sekurlsa::pth` module uses existing hash material to create an authentication context. This is Pass-the-Hash, not a command that dumps a new credential.
 
-> Network connection event showing communication from the compromised host (10.10.155.159) to the external address 165.232.170.151 over TCP port 80.
+Masked lab artifact:
 
-This connection was particularly suspicious because it occurred shortly after the execution of the malicious payload. The external destination was likely being used by the malware for command-and-control (C2) communication or to retrieve additional instructions from the attacker.
+```text
+itadmin:F84769D2...C5613F2
+```
 
-Identifying this outbound connection provided further evidence that the compromise had progressed beyond initial execution and that the infected host was actively communicating with external infrastructure.
+The command proves that the attacker possessed and attempted to use the hash. Authentication logs would provide additional confirmation of which systems accepted it.
 
-### UAC Bypass Investigation
+## Network Share Access and Credential Exposure
 
-At this stage of the investigation, it became apparent that the attacker had obtained local administrator privileges on the compromised system. A common next step in such scenarios is to bypass User Account Control (UAC) in order to execute processes with elevated privileges without prompting the user.
+```kql
+process.command_line : "*\\\\WKSTN-1327.quicklogistics.org\\ITFiles*"
+```
 
-To identify the technique used, I searched for several executables commonly associated with UAC bypass techniques, including `fodhelper.exe`, `computerdefaults.exe`, `sdclt.exe`, `eventvwr.exe`, `slui.exe`, `wsreset.exe`, and `cmstp.exe`.
+<img width="467" height="38" alt="Elastic query for access to the WKSTN-1327 ITFiles SMB share" src="https://github.com/user-attachments/assets/4fef2135-1227-494e-b383-4928159a45f8" />
 
-<img width="902" height="33" alt="Ekran görüntüsü 2026-06-10 221425" src="https://github.com/user-attachments/assets/ea9ea40d-7e77-4fdc-9359-5986449b7fbe" />
+<img width="644" height="104" alt="PowerShell command referencing IT Automation script on the WKSTN-1327 network share" src="https://github.com/user-attachments/assets/50bdedf8-65de-49de-aa69-62e6483be595" />
 
-> Elastic query used to identify executables commonly associated with UAC bypass techniques.
+The command accessed:
 
-The investigation revealed the execution of `fodhelper.exe` on the compromised host shortly after the malicious payload established persistence.
+```text
+\\WKSTN-1327.quicklogistics.org\ITFiles\IT_Automation.ps1
+```
 
-<img width="989" height="69" alt="Ekran görüntüsü 2026-06-10 221506" src="https://github.com/user-attachments/assets/4e6bcb04-f636-4a0a-b381-0053dc596491" />
+This confirms remote-share access and resource discovery. Share access alone does not prove code execution or lateral movement on the remote host.
 
-> Elastic event confirming fodhelper.exe as the executable used by the attacker to perform the UAC bypass.
+```kql
+host.name : "WKSTN-0051" and process.name : "powershell.exe" and
+process.command_line : ("*PSCredential*" and "*Invoke-Command*" and "*WKSTN-1327*")
+```
 
-This finding confirmed that the attacker leveraged **fodhelper.exe** to perform a UAC bypass. This technique is frequently abused by threat actors because `fodhelper.exe` is an auto-elevated Windows binary that can be manipulated through registry modifications to launch arbitrary commands with elevated privileges.
+<img width="477" height="32" alt="Elastic query for PowerShell file and remote-command activity on WKSTN-0051" src="https://github.com/user-attachments/assets/d573e7fa-b3db-4aa9-b13f-acbe5cf8ccb0" />
 
-The discovery of this activity indicated that the attacker was actively attempting to increase the level of access available on the compromised host and further strengthen their foothold within the environment.
+<img width="925" height="117" alt="PowerShell command creating a PSCredential object and targeting WKSTN-1327 with Invoke-Command" src="https://github.com/user-attachments/assets/f54a5867-81d1-4f27-a1b0-7eec65888400" />
 
-### Credential Dumping Activity
+The script exposed a plaintext lab credential and used it with `Invoke-Command` against `WKSTN-1327`.
 
-After successfully bypassing UAC, the attacker appeared to shift focus toward credential access.
+Masked lab artifact:
 
-To identify potential credential dumping activity, I searched for references to GitHub within process command-line arguments. Threat actors frequently use GitHub to host and distribute offensive security tools, making it a useful indicator during investigations.
+```text
+QUICKLOGISTICS\allan.smith:Tr!c...987
+```
 
-<img width="260" height="35" alt="Ekran görüntüsü 2026-06-10 222040" src="https://github.com/user-attachments/assets/29e50bcb-8b3a-4591-b2d2-de8498a46206" />
+This is best mapped as credentials exposed in a file or script. The later process activity on `WKSTN-1327` provides the stronger evidence of successful remote execution.
 
-> Query used to identify references to GitHub within process command-line arguments.
+## WinRM Lateral Movement
 
-The search results revealed a PowerShell command that downloaded a ZIP archive from a GitHub release page.
+```kql
+host.name : "WKSTN-1327" and event.code : "1" and
+process.parent.name : "wsmprovhost.exe" and process.name : "powershell.exe"
+```
 
-<img width="196" height="128" alt="Ekran görüntüsü 2026-06-10 222107" src="https://github.com/user-attachments/assets/69dde305-a34c-40d0-8538-14dcd3e87dbf" />
+<img width="815" height="33" alt="Elastic query for process creation events on WKSTN-1327" src="https://github.com/user-attachments/assets/5ad5db1b-8e65-4648-bbd0-19c4ee320b4c" />
 
-> PowerShell command used to download Mimikatz from a GitHub release page.
+<img width="1506" height="156" alt="Sysmon process event showing encoded PowerShell spawned by wsmprovhost on WKSTN-1327" src="https://github.com/user-attachments/assets/03b82556-7983-430d-aef7-9d2c824a6634" />
 
-Further examination of the command line showed that the attacker downloaded **Mimikatz**, a well-known credential dumping tool commonly used to extract plaintext credentials, password hashes, Kerberos tickets, and other authentication material from compromised systems.
+`wsmprovhost.exe` is associated with WinRM-hosted PowerShell sessions. Its parent-child relationship with encoded PowerShell on the target host provides high-confidence evidence of remote execution and lateral movement.
 
-The presence of this download strongly suggested that the attacker was preparing to harvest credentials from the compromised host in order to expand access within the environment.
+## Encoded PowerShell Analysis
 
+Windows PowerShell `-EncodedCommand` commonly represents the command as Base64-encoded UTF-16LE. I decoded the value in CyberChef using **From Base64** followed by **Decode text: UTF-16LE**. Removing null bytes can make the text readable, but selecting the correct character encoding is the more accurate method.
 
-### Credential Discovery
+<img width="1518" height="735" alt="CyberChef workflow decoding the Base64 PowerShell command into readable UTF-16LE text" src="https://github.com/user-attachments/assets/e16a9d14-a7f7-4592-b5a7-09f4ef9aa3a2" />
 
-After identifying the download of Mimikatz, I searched for evidence of the tool being executed on the compromised host.
+The decoded script used `.NET WebClient`, referenced `/admin/get.php`, and used `IEX` to execute retrieved content in memory. These elements support a PowerShell backdoor assessment and application-layer web communication.
 
-<img width="157" height="36" alt="Ekran görüntüsü 2026-06-11 015455" src="https://github.com/user-attachments/assets/4df56b44-09fb-45a1-a64b-80276f0f9703" />
+## Additional Pass-the-Hash Activity
 
-> Elastic query used to search for Mimikatz execution events within the collected endpoint telemetry.
+```kql
+host.name : "WKSTN-1327" and event.code : "1" and
+process.name : "mimikatz.exe" and process.command_line : "*sekurlsa::pth*"
+```
 
-The results confirmed that `mimikatz.exe` was executed with the `sekurlsa::pth` module, a technique commonly used to perform Pass-the-Hash attacks. This indicated that the attacker had already obtained credential material and was attempting to authenticate using NTLM hashes rather than plaintext passwords.
+<img width="897" height="37" alt="Elastic query for Mimikatz execution on WKSTN-1327" src="https://github.com/user-attachments/assets/a57a9125-400c-4ca6-b3c0-2f07437941c2" />
 
+<img width="1533" height="44" alt="Mimikatz sekurlsa pth command using the administrator account and an NTLM hash" src="https://github.com/user-attachments/assets/0704213a-6de6-4dc3-af11-26b9b00e1acd" />
 
-<img width="676" height="98" alt="Ekran görüntüsü 2026-06-11 015521" src="https://github.com/user-attachments/assets/a2c44584-73dd-4475-bda7-4b7f145accec" />
+Masked lab artifact:
 
-> Mimikatz execution event showing the use of the sekurlsa::pth module and revealing the credential pair used during the Pass-the-Hash attack.
+```text
+administrator:00f80f25...e7091ec
+```
 
-By examining the command-line arguments associated with the execution of Mimikatz, I identified the credential pair used by the attacker:
+This event shows another Pass-the-Hash operation. It does not demonstrate that Mimikatz dumped this hash on `WKSTN-1327`; the hash was already supplied as a command argument.
 
-**Discovered Credential Pair**
+## Domain Controller and DCSync Activity
 
-**itadmin:F84769D250EB95EB2D7D8B4A1C5613F2**
+<img width="1544" height="116" alt="PowerShell activity referencing the DC01 administrative share from WKSTN-1327" src="https://github.com/user-attachments/assets/05bad9c6-e6e2-4c9c-a5a5-16afeb3951eb" />
 
-The use of Pass-the-Hash demonstrated that the attacker had successfully harvested credentials from the compromised host and was preparing to leverage them for lateral movement to additional systems within the environment.
+The command accessed `\\DC01.quicklogistics.org\c$`, identifying `DC01` as the domain controller and showing administrative-share access.
 
-### File Share Enumeration
+```kql
+process.name : "mimikatz.exe" and process.command_line : "*lsadump::dcsync*"
+```
 
-After obtaining valid credentials, the attacker began exploring accessible network resources within the environment.
+<img width="707" height="30" alt="Elastic query for Mimikatz lsadump dcsync command activity" src="https://github.com/user-attachments/assets/9ea34662-061c-472f-a6d1-078d46389cf6" />
 
-To identify potential file share enumeration activity, I searched for command-line arguments commonly associated with network share access, including references to SMB shares, network paths, and file system operations.
+<img width="1560" height="123" alt="Mimikatz DCSync command events targeting administrator and backupda accounts" src="https://github.com/user-attachments/assets/acb11f12-2989-4ac2-933e-38d18c2d6d1a" />
 
-<img width="467" height="38" alt="Ekran görüntüsü 2026-06-11 021543" src="https://github.com/user-attachments/assets/4fef2135-1227-494e-b383-4928159a45f8" />
+The command line used `lsadump::dcsync` against the `quicklogistics.org` domain and targeted `administrator` and `backupda`. DCSync can be initiated remotely by an account with directory replication rights; Mimikatz does not need to execute directly on the domain controller.
 
-> Elastic query used to search for SMB share access and file enumeration activity on remote systems.
+Process telemetry confirms the DCSync attempt. To verify successful replication and credential extraction in a production case, I would also review command output, domain controller security telemetry, directory replication activity, and the privileges of the initiating account.
 
-The search results revealed PowerShell activity interacting with a remote file share hosted on `WKSTN-1327`. The command referenced a script stored within a shared directory:
+## Ransomware Payload Transfer
 
-`\\WKSTN-1327.quicklogistics.org\ITFiles\IT_Automation.ps1`
+```kql
+process.name : "powershell.exe" and
+process.command_line : (("*Invoke-WebRequest*" or "* iwr *") and "*ransomboogey.exe*")
+```
 
-<img width="644" height="104" alt="Ekran görüntüsü 2026-06-11 021604" src="https://github.com/user-attachments/assets/50bdedf8-65de-49de-aa69-62e6483be595" />
+<img width="750" height="34" alt="Elastic query for PowerShell Invoke-WebRequest download activity" src="https://github.com/user-attachments/assets/491bb80f-b785-4749-9421-2591423770db" />
 
-> PowerShell activity showing access to a remote SMB share and the discovery of the IT_Automation.ps1 script on WKSTN-1327.
+The search found this URL:
 
-This finding confirmed that the attacker had successfully accessed a remote share and was actively exploring resources available through the newly acquired credentials. The discovery also provided evidence of lateral movement activity, as the attacker was no longer operating solely on the initially compromised workstation.
+```text
+hxxp://ff[.]sillytechninja[.]io/ransomboogey.exe
+```
 
-### Additional Credential Discovery
+<img width="1553" height="50" alt="PowerShell Invoke-WebRequest command downloading ransomboogey.exe" src="https://github.com/user-attachments/assets/e20312ad-8e75-4ae0-884f-1bfa5ba01225" />
 
-After identifying the remote PowerShell script (IT_Automation.ps1), I continued investigating activity related to file access on the compromised host.
+The command confirms ingress tool transfer of a ransomware-named executable. The dataset shown in this report does not confirm execution, mass file modification, encryption, extension changes, or ransom-note creation. For that reason, I do not map Data Encrypted for Impact.
 
-To locate references to files and script execution, I searched for PowerShell commands containing file-related activity associated with `WKSTN-0051`.
+## Indicators and Investigation Artifacts
 
-<img width="477" height="32" alt="Ekran görüntüsü 2026-06-11 024123" src="https://github.com/user-attachments/assets/d573e7fa-b3db-4aa9-b13f-acbe5cf8ccb0" />
+| Type | Value | Context |
+| --- | --- | --- |
+| External IP | `165.232.170.151` | HTTP destination contacted after payload activity |
+| Initial host IP | `10.10.155.159` | Compromised workstation address in the network event |
+| Persistence artifact | Scheduled task `Review` | Executes `rundll32.exe` with `review.dat` |
+| Payload artifact | `review.dat` | Copied and loaded as a DLL-like payload |
+| Remote script | `\\WKSTN-1327.quicklogistics.org\ITFiles\IT_Automation.ps1` | Contained a plaintext lab credential |
+| C2 path | `/admin/get.php` | Found in decoded PowerShell |
+| Download URL | `hxxp://ff[.]sillytechninja[.]io/ransomboogey.exe` | Ransomware payload transfer |
+| Accounts | `itadmin`, `allan.smith`, `administrator`, `backupda` | Accounts referenced during the incident |
 
-> Elastic query used to identify PowerShell activity related to file access and script execution on WKSTN-0051.
-
-The results revealed a command-line event where a PSCredential object was created and credentials were supplied directly within the command. The same event also showed that the credentials were used to execute actions remotely against WKSTN-1327 through Invoke-Command.
-
-<img width="925" height="117" alt="Ekran görüntüsü 2026-06-11 024215" src="https://github.com/user-attachments/assets/f54a5867-81d1-4f27-a1b0-7eec65888400" />
-
-> Command-line event revealing both the embedded credentials and the remote host targeted during the lateral movement attempt.
-
-By examining the command-line arguments, I identified an additional credential pair embedded within the script:
-
-### Discovered Credential Pair
-
-QUICKLOGISTICS\allan.smith:Tr!ckyP@ssw0rd987
-
-Further examination of the same event showed that the credentials were being used against WKSTN-1327. This indicated that the attacker had already begun attempting lateral movement using the newly discovered account.
-
-As a result, I identified **WKSTN-1327** as the host targeted during the attacker's lateral movement attempt.
-
-### Remote Execution on WKSTN-1327
-
-After identifying `WKSTN-1327` as the target of the lateral movement attempt, I shifted my focus to process creation events on that host.
-
-To investigate activity executed after the remote connection was established, I reviewed Sysmon Event ID 1 logs associated with `WKSTN-1327`.
-
-<img width="815" height="33" alt="2331" src="https://github.com/user-attachments/assets/5ad5db1b-8e65-4648-bbd0-19c4ee320b4c" />
-
-> Elastic query used to identify process creation events on WKSTN-1327 following the lateral movement attempt.
-
-The results revealed the execution of `powershell.exe` with a Base64-encoded command (`-enc`). The process was spawned by `wsmprovhost.exe`, a Windows process commonly associated with PowerShell Remoting and WinRM sessions.
-
-<img width="1506" height="156" alt="324324" src="https://github.com/user-attachments/assets/03b82556-7983-430d-aef7-9d2c824a6634" />
-
-> Sysmon Event ID 1 record revealing the execution of a Base64-encoded PowerShell command spawned by wsmprovhost.exe on WKSTN-1327.
-
-The presence of an encoded PowerShell command strongly suggested that the attacker was executing commands remotely on the host while attempting to conceal the underlying actions from casual inspection.
-
-This activity provided additional evidence that the attacker had successfully leveraged the harvested credentials to execute commands on a remote system and continue the intrusion.
-
-### Encoded PowerShell Analysis
-
-The remote execution event revealed a PowerShell command launched with the `-enc` parameter, indicating that the command had been Base64 encoded.
-
-To understand the attacker's actions, I extracted the encoded string and decoded it using CyberChef. During this process, I first applied the **From Base64** operation and then used **Remove Null Bytes** to clean the output and recover the original PowerShell script.
-
-<img width="1518" height="735" alt="3234" src="https://github.com/user-attachments/assets/e16a9d14-a7f7-4592-b5a7-09f4ef9aa3a2" />
-
-> CyberChef workflow used to decode the Base64-encoded PowerShell command and remove null bytes from the output.
-
-
-The decoded script revealed a PowerShell-based backdoor designed to communicate with an external server and execute commands received from the attacker. The script leveraged the .NET `WebClient` class to establish communication and retrieve additional instructions.
-
-Further analysis showed references to the URI `/admin/get.php`, suggesting that the malware was configured to contact a remote command-and-control (C2) endpoint. The script also used `IEX` (`Invoke-Expression`) to execute downloaded content directly in memory, a technique commonly used by attackers to avoid writing malicious files to disk.
-
-This finding confirmed that the attacker had successfully established a mechanism for remote command execution and ongoing communication with external infrastructure. The decoded payload also provided valuable insight into the attacker's post-exploitation activity and command-and-control methodology.
-
-### Additional Credential Dumping
-
-After identifying remote execution activity on `WKSTN-1327`, I investigated whether the attacker attempted to harvest additional credentials from the newly compromised host.
-
-To identify credential dumping activity, I searched for Mimikatz execution events on `WKSTN-1327` by reviewing Sysmon Event ID 1 (Process Creation) logs.
-
-<img width="897" height="37" alt="423432" src="https://github.com/user-attachments/assets/a57a9125-400c-4ca6-b3c0-2f07437941c2" />
-
-> Elastic query used to identify Mimikatz execution events on WKSTN-1327 following the lateral movement attempt.
-
-The results revealed another execution of `mimikatz.exe` using the `sekurlsa::pth` module. Several command-line arguments immediately stood out during the analysis:
-
-* `sekurlsa::pth` – indicating a Pass-the-Hash operation.
-* `/user:` – identifying the targeted account.
-* `/ntlm:` – containing the NTLM hash associated with the account.
-
-<img width="1533" height="44" alt="Ekran görüntüsü 2026-06-11 112307" src="https://github.com/user-attachments/assets/0704213a-6de6-4dc3-af11-26b9b00e1acd" />
-
-> Sysmon Event ID 1 record showing Mimikatz execution with the sekurlsa::pth module and the credential pair obtained by the attacker.
-
-By examining these parameters, I identified the newly dumped credential pair:
-
-### Discovered Credential Pair
-
-administrator:00f80f2538dcb54e7adc715c0e7091ec
-
-
-This finding demonstrated that the attacker continued harvesting credentials after moving laterally and was leveraging newly acquired hashes to expand access within the environment.
-
-
-### Domain Controller Access and DCSync Activity
-
-Following the successful compromise of `WKSTN-1327`, I continued investigating the attacker's actions to determine whether access had been expanded further within the environment.
-
-While reviewing process creation events on `WKSTN-1327`, I observed PowerShell activity interacting with `\\DC01.quicklogistics.org\c$`, indicating that the attacker had begun accessing the domain controller.
-
-<img width="1544" height="116" alt="234324323432" src="https://github.com/user-attachments/assets/05bad9c6-e6e2-4c9c-a5a5-16afeb3951eb" />
-
-> PowerShell activity showing access to the administrative share on DC01, identifying the domain controller targeted by the attacker.
-
-This activity allowed me to identify **DC01** as the domain controller within the Quick Logistics environment.
-
-To investigate potential credential theft from Active Directory, I searched for Mimikatz activity associated with the domain controller.
-
-<img width="707" height="30" alt="ads" src="https://github.com/user-attachments/assets/9ea34662-061c-472f-a6d1-078d46389cf6" />
-
-> Elastic query used to identify Mimikatz activity on the domain controller.
-
-The results revealed the execution of Mimikatz using the `lsadump::dcsync` module, a technique that allows attackers to request password hashes directly from Active Directory by impersonating a domain controller.
-
-Several command-line arguments immediately stood out during the analysis:
-
-* `lsadump::dcsync` – indicating a DCSync attack.
-* `/domain:quicklogistics.org` – identifying the targeted domain.
-* `/user:` – identifying the account being requested from Active Directory.
-
-<img width="1560" height="123" alt="asda" src="https://github.com/user-attachments/assets/acb11f12-2989-4ac2-933e-38d18c2d6d1a" />
-
-> DCSync events showing password hash requests for both the administrator and backupda accounts on the domain controller.
-
-The attacker initially targeted the `administrator` account. However, further review of the DCSync events revealed an additional request against:
-
-**Discovered Account**
-
-`backupda`
-
-This finding confirmed that the attacker had successfully reached the domain controller and was actively extracting credential material from Active Directory using DCSync techniques. The discovery of the `backupda` account demonstrated that the attacker was expanding beyond standard administrative accounts and targeting additional privileged credentials within the domain.
-
-### Ransomware Download Activity
-
-After obtaining additional credentials from the domain controller, I continued investigating the attacker's post-exploitation activity to determine the next stage of the attack.
-
-To identify potential malware downloads, I searched for PowerShell commands containing the `iwr` (`Invoke-WebRequest`) cmdlet. This cmdlet is commonly used by attackers to download files from remote servers and is frequently observed during malware delivery and post-exploitation activities.
-
-<img width="750" height="34" alt="234324" src="https://github.com/user-attachments/assets/491bb80f-b785-4749-9421-2591423770db" />
-
-> Elastic query used to identify PowerShell download activity on the domain controller.
-
-The search results revealed a PowerShell command that used `Invoke-WebRequest` to download an executable file from an external location:
-
-**Downloaded Payload URL**
-
-`http://ff.sillytechninja.io/ransomboogey.exe`
-
-<img width="1553" height="50" alt="132312" src="https://github.com/user-attachments/assets/e20312ad-8e75-4ae0-884f-1bfa5ba01225" />
-
-> PowerShell command using Invoke-WebRequest to download the ransomware payload from an external server.
-
-The downloaded file was named `ransomboogey.exe`, strongly suggesting that the attacker was preparing to deploy a ransomware payload within the environment.
-
-This finding demonstrated the final stage of the attacker's post-exploitation activity. What initially began as a phishing email had evolved into credential theft, lateral movement, Active Directory compromise, and ultimately the download of a ransomware payload. The investigation highlighted how a single successful phishing attempt enabled the attacker to progressively expand access throughout the environment.
+These artifacts belong to the training scenario. They should be validated against time, environment, ownership, and business context before use in a production blocklist.
 
 ## MITRE ATT&CK Mapping
 
-The investigation revealed a multi-stage intrusion that aligned with several MITRE ATT&CK techniques. The attack began with a phishing email containing a malicious attachment and progressed through execution, persistence, privilege escalation, credential theft, lateral movement, Active Directory compromise, and ultimately ransomware deployment.
+| Tactic | Technique | ID | Evidence | Confidence |
+| --- | --- | --- | --- | --- |
+| Initial Access | Phishing: Spearphishing Attachment | T1566.001 | Malicious attachment delivered to the CEO | High |
+| Execution | Signed Binary Proxy Execution: Mshta | T1218.005 | `mshta.exe` associated with the reported attachment | High |
+| Persistence | Scheduled Task/Job: Scheduled Task | T1053.005 | PowerShell created the recurring `Review` task | High |
+| Command and Control | Application Layer Protocol: Web Protocols | T1071.001 | HTTP activity and decoded WebClient-based command channel | Medium |
+| Privilege Escalation | Abuse Elevation Control Mechanism: Bypass User Account Control | T1548.002 | Suspicious `fodhelper.exe` execution; registry evidence unavailable | Medium |
+| Credential Access | Unsecured Credentials: Credentials In Files | T1552.001 | Plaintext credential embedded in `IT_Automation.ps1` | High |
+| Defense Evasion / Lateral Movement | Use Alternate Authentication Material: Pass the Hash | T1550.002 | Mimikatz `sekurlsa::pth` commands with NTLM hashes | High |
+| Discovery | Network Share Discovery | T1135 | Remote `ITFiles` share accessed | High |
+| Lateral Movement | Remote Services: Windows Remote Management | T1021.006 | `wsmprovhost.exe` spawned PowerShell on `WKSTN-1327` | High |
+| Execution | Command and Scripting Interpreter: PowerShell | T1059.001 | PowerShell used for persistence, remote execution, and downloads | High |
+| Credential Access | OS Credential Dumping: DCSync | T1003.006 | `lsadump::dcsync` command activity against privileged accounts | High for attempt |
+| Command and Control | Ingress Tool Transfer | T1105 | Mimikatz archive and `ransomboogey.exe` downloaded | High |
 
-| Tactic | Technique | ATT&CK ID |
-|----------|----------|----------|
-| Initial Access | Phishing: Spearphishing Attachment | T1566.001 |
-| Execution | Signed Binary Proxy Execution: Mshta | T1218.005 |
-| Persistence | Scheduled Task/Job: Scheduled Task | T1053.005 |
-| Command and Control | Application Layer Protocol: Web Protocols | T1071.001 |
-| Privilege Escalation | Abuse Elevation Control Mechanism: Bypass User Account Control | T1548.002 |
-| Credential Access | OS Credential Dumping | T1003 |
-| Credential Access | Use Alternate Authentication Material: Pass the Hash | T1550.002 |
-| Discovery | Network Share Discovery | T1135 |
-| Lateral Movement | Remote Services: PowerShell | T1021.006 |
-| Execution | PowerShell | T1059.001 |
-| Credential Access | DCSync | T1003.006 |
-| Impact | Data Encrypted for Impact | T1486 |
+## Containment and Recovery Priorities
 
+1. Isolate `WKSTN-0051` and `WKSTN-1327`; preserve volatile and disk evidence.
+2. Block or sinkhole confirmed malicious destinations after checking current ownership.
+3. Remove the `Review` task and associated payload only after evidence collection.
+4. Reset exposed accounts, terminate active sessions, and invalidate affected authentication material.
+5. Review privileged group membership and directory replication rights.
+6. If DCSync success is confirmed, follow the organization's domain-compromise recovery process, including controlled `KRBTGT` rotation where appropriate.
+7. Hunt for `review.dat`, `rundll32` execution, `wsmprovhost` child processes, Mimikatz indicators, DCSync activity, and the ransomware filename across the environment.
+8. Verify backups and search for encryption, ransom notes, and destructive activity before declaring the incident contained.
 
+## Detection Opportunities
 
+- Alert when Office or user-launched content starts `mshta.exe`.
+- Correlate `mshta.exe` with `rundll32.exe`, PowerShell, or scheduled-task creation.
+- Detect `wsmprovhost.exe` spawning encoded PowerShell on unusual endpoints.
+- Alert on Mimikatz module strings such as `sekurlsa::pth` and `lsadump::dcsync`.
+- Monitor PowerShell downloads of executable content from newly observed domains.
+- Review unusual directory replication requests and accounts granted replication rights.
 
+Reusable examples are available in the repository's [detection notes](../detections/README.md).
 
+## Limitations
 
+- The report is based on a training dataset and the telemetry exposed by the lab.
+- Exact event timestamps and complete authentication logs were not included in the written evidence set.
+- The UAC bypass assessment lacks the supporting registry event needed for full confirmation.
+- DCSync command execution was observed, but successful credential extraction was not independently verified.
+- Ransomware download was observed, but execution and data encryption were not.
+- The KQL examples reflect common ECS field names and may require adjustment for another integration.
 
+## Conclusion
 
+The investigation shows how one phishing attachment can lead to persistence, credential abuse, remote execution, domain-level credential access attempts, and ransomware staging. The strongest findings are supported by process command lines and host relationships rather than tool names alone.
 
+The most important correction to the initial narrative is the final impact: the data proves that a ransomware-named payload was downloaded, not that files were encrypted. Keeping that distinction clear makes the report more accurate and easier to defend during an interview or incident review.
 
+## References
 
-
-
-
-
-
-
+- [MITRE ATT&CK T1550.002: Pass the Hash](https://attack.mitre.org/techniques/T1550/002/)
+- [MITRE ATT&CK T1003.006: DCSync](https://attack.mitre.org/techniques/T1003/006/)
+- [MITRE ATT&CK T1105: Ingress Tool Transfer](https://attack.mitre.org/techniques/T1105/)
+- [MITRE ATT&CK T1486: Data Encrypted for Impact](https://attack.mitre.org/techniques/T1486/)
+- [Microsoft: Decode a PowerShell command from a running process](https://learn.microsoft.com/powershell/scripting/samples/decode-powershell-command-from-a-running-process)
