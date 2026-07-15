@@ -1,103 +1,76 @@
 # SOC Phishing Case Studies
 
-## Overview
+[![Documentation Check](https://github.com/BatuhanTekin95/SOC-Phishing-Case-Studies/actions/workflows/documentation-check.yml/badge.svg)](https://github.com/BatuhanTekin95/SOC-Phishing-Case-Studies/actions/workflows/documentation-check.yml)
 
-This repository documents my phishing analysis and incident investigation journey as part of my SOC Analyst training. The project covers phishing fundamentals, email authentication mechanisms, IOC analysis, OSINT techniques, MITRE ATT&CK mapping, and hands-on phishing investigation scenarios.
+This repository documents my phishing analysis practice from a SOC analyst perspective. It starts with the fundamentals of email investigation and continues with two hands-on cases covering email authentication, IOC enrichment, endpoint telemetry, lateral movement, and Active Directory abuse.
 
-The repository combines theoretical knowledge with practical investigations performed using industry-standard tools and methodologies. The case studies demonstrate how a phishing attack can evolve from initial access to credential theft, lateral movement, Active Directory compromise, and ransomware deployment.
+The investigations were completed in controlled training environments. My aim is to show how I move from an initial alert to an evidence-based conclusion, while keeping confirmed observations separate from assumptions.
 
----
+## Case Studies
 
-## Objectives
+| Case study | Focus | Main tools and data | Status |
+| --- | --- | --- | --- |
+| [Phishing Fundamentals](docs/01-Phishing-Fundamentals.md) | Email flow, headers, authentication, IOC handling, and safe triage | Email headers, DNS, OSINT | Reference guide |
+| [Greenholt Phish Investigation](docs/02-Greenholt-Phish-Investigation.md) | Sender impersonation, SPF/DMARC review, infrastructure enrichment, and attachment analysis | Thunderbird, DNS, Cisco Talos, VirusTotal | Completed |
+| [Boogeyman3: Phishing to Ransomware Staging](docs/03-Boogeyman3-Phishing-to-Ransomware-Investigation-Elastic-Security.md) | Process chains, persistence, Pass-the-Hash, WinRM, DCSync activity, and payload transfer | Elastic Security, Sysmon, PowerShell, CyberChef | Completed |
 
-* Analyze phishing emails from a SOC analyst perspective
-* Investigate email headers and authentication mechanisms
-* Extract and validate Indicators of Compromise (IOCs)
-* Perform OSINT and reputation analysis
-* Conduct endpoint and log-based investigations
-* Map attacker activity to the MITRE ATT&CK framework
-* Produce structured incident investigation reports
+## Investigation Approach
 
----
+I use the following workflow during the case studies:
 
-## Repository Contents
+1. Confirm the scope, affected user, host, and time range.
+2. Review the email body, sender identity, headers, links, and attachments.
+3. Extract IOCs and enrich them without treating reputation data as proof on its own.
+4. Correlate email findings with process, network, authentication, and endpoint telemetry.
+5. Map only observed behavior to MITRE ATT&CK and state the confidence of each conclusion.
+6. Document containment actions, limitations, and remaining investigation questions.
 
-### 01 - Phishing Fundamentals
+## Repository Structure
 
-Core phishing concepts, email anatomy, common attack techniques, authentication mechanisms, indicators of phishing, and investigation methodology.
+```text
+.
+├── docs/
+│   ├── 01-Phishing-Fundamentals.md
+│   ├── 02-Greenholt-Phish-Investigation.md
+│   └── 03-Boogeyman3-Phishing-to-Ransomware-Investigation-Elastic-Security.md
+├── detections/
+│   └── README.md
+├── .github/
+│   ├── scripts/check_markdown_links.py
+│   └── workflows/documentation-check.yml
+├── LICENSE
+└── README.md
+```
 
-📖 [Open Phishing Fundamentals](docs/01-Phishing-Fundamentals.md)
+## Tools and Data Sources
 
----
-
-### 02 - Greenholt Phish Investigation
-
-Investigation of a phishing email involving header analysis, SPF/DMARC validation, IOC extraction, infrastructure analysis, and threat intelligence enrichment.
-
-🔍 [Open Greenholt Phish Investigation](docs/02-Greenholt-Phish-Investigation.md.md)
-
----
-
-## 03 - Boogeyman3: Phishing-to-Ransomware Investigation (Elastic Security)
-
-End-to-end incident investigation following a phishing attack that progressed through malware execution, persistence, privilege escalation, credential dumping, lateral movement, Active Directory compromise, DCSync activity, and ransomware deployment using Elastic Security.
-
-🛡️ [Open Boogeyman3: Phishing-to-Ransomware Investigation (Elastic Security)](https://github.com/BatuhanTekin95/SOC-Phishing-Case-Studies/blob/main/docs/03-Boogeyman3-Phishing-to-Ransomware-Investigation-Elastic-Security.md)
-
----
-
-
-
-## Investigation Methodology
-
-1. Email Triage
-2. Header Analysis
-3. IOC Extraction
-4. Reputation Analysis
-5. Endpoint Investigation
-6. Threat Hunting
-7. MITRE ATT&CK Mapping
-8. Incident Reporting
-
----
-
-## Tools Used
-
-* Elastic Security
-* Thunderbird
-* CyberChef
-* VirusTotal
-* MXToolbox
-* URLScan.io
-* Any.Run
-* Linux Terminal
-* Cisco Talos Intelligence
-
----
+- Elastic Security and Sysmon telemetry
+- Thunderbird and raw email headers
+- CyberChef
+- VirusTotal
+- Cisco Talos Intelligence
+- MXToolbox and DNS command-line utilities
+- URLScan.io and controlled analysis environments
 
 ## Skills Demonstrated
 
-* Phishing Email Analysis
-* Email Header Investigation
-* SPF, DKIM, and DMARC Validation
-* IOC Collection and Enrichment
-* OSINT Investigation
-* Threat Intelligence Analysis
-* Endpoint Investigation
-* Process Analysis
-* Credential Access Investigation
-* Lateral Movement Detection
-* MITRE ATT&CK Mapping
-* Incident Reporting
+- Phishing email triage and header analysis
+- SPF, DKIM, and DMARC interpretation
+- IOC extraction and threat intelligence enrichment
+- Process and command-line analysis
+- Network connection analysis
+- Persistence and lateral movement investigation
+- MITRE ATT&CK mapping based on observed evidence
+- Incident reporting and response recommendations
 
----
+## Detection Notes
 
-## Key Outcomes
+The [detection notes](detections/README.md) contain reusable Elastic KQL examples derived from the Boogeyman3 investigation. Field names may need to be adjusted for a different Elastic integration or ECS mapping.
 
-Through these investigations, I developed practical experience in phishing detection, email forensics, endpoint analysis, credential theft investigations, threat hunting, and incident response workflows commonly used within Security Operations Centers (SOCs).
+## Scope and Safety
 
----
+All credentials, hosts, domains, and malware samples shown in the case studies belong to simulated training scenarios or are presented as historical investigation artifacts. Suspicious files and URLs should only be handled in an isolated lab. IOC reputation can change over time, so indicators should always be validated in context before blocking.
 
-## Disclaimer
+## License
 
-This repository is intended for educational and training purposes only. All investigations are performed within controlled lab environments designed for cybersecurity training.
+This project is available under the [MIT License](LICENSE).
